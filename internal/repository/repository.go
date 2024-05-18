@@ -77,6 +77,10 @@ func Create(path string) (repository, error) {
 		return repository{}, err
 	}
 
+	if _, err = os.Stat(filepath.Join(absPath, ".minigit")); err == nil {
+		return repository{}, errors.New("repository already initialized in directory")
+	}
+
 	r := newRepository(absPath)
 
 	makeDirs := func(dirs ...string) error {
