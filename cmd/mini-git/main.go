@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"crypto/sha1"
+	"fmt"
+	"io"
+)
 
 func main() {
-	fmt.Println("Hello, world!")
+	h := sha1.New()
+	io.WriteString(h, "hello world")
+	fmt.Printf("%x\n", h.Sum(nil))
 }
