@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -70,6 +71,10 @@ func WriteBlob(repo repository.Repository, content string) (checksum string, err
 }
 
 func ReadBlob(repo repository.Repository, checksum string) (content string, err error) {
+	if len(checksum) != 40 {
+		return "", errors.New("string provided is not a valid checksum")
+	}
+
 	obj_path := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
 	_, err = os.Stat(obj_path)
 	if err != nil {
