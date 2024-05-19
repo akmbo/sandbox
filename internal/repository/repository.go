@@ -57,7 +57,7 @@ func Discover(path string) (Repository, error) {
 		return Repository{}, err
 	}
 
-	projectPath, err := walkUpSearch(path, ".minigit")
+	projectPath, err := walkUpSearch(absPath, ".minigit")
 	if err != nil {
 		return Repository{}, err
 	}
