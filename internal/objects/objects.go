@@ -12,10 +12,10 @@ import (
 	"github.com/aaolen/mini-git/internal/repository"
 )
 
-func compressString(content string) ([]byte, error) {
+func compress(input []byte) ([]byte, error) {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
-	_, err := w.Write([]byte(content))
+	_, err := w.Write(input)
 	if err != nil {
 		return nil, err
 	}
@@ -25,20 +25,20 @@ func compressString(content string) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func decompressString(compressed []byte) (string, error) {
+func decompress(compressed []byte) ([]byte, error) {
 	r, err := zlib.NewReader(bytes.NewReader(compressed))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var out bytes.Buffer
 	_, err = io.Copy(&out, r)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if err := r.Close(); err != nil {
-		return "", err
+		return nil, err
 	}
-	return out.String(), nil
+	return out.Bytes(), nil
 }
 
 func getChecksum(content string) string {
@@ -48,7 +48,7 @@ func getChecksum(content string) string {
 }
 
 func WriteBlob(repo repository.Repository, content string) (checksum string, err error) {
-	compressed, err := compressString(content)
+	compressed, err := compress([]byte(content))
 	if err != nil {
 		return "", err
 	}
@@ -81,10 +81,10 @@ func ReadBlob(repo repository.Repository, checksum string) (content string, err 
 		return "", err
 	}
 
-	content, err = decompressString(b)
+	output, err := decompress(b)
 	if err != nil {
 		return "", err
 	}
 
-	return content, nil
+	return string(output), nil
 }
