@@ -12,7 +12,7 @@ import (
 
 func makeDirs(dirs ...string) error {
 	for _, d := range dirs {
-		err := os.MkdirAll(d, os.ModePerm)
+		err := os.MkdirAll(d, 0777)
 		if err != nil {
 			return err
 		}

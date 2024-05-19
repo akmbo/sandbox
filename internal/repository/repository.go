@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-type repository struct {
+type Repository struct {
 	Path    string
 	Data    string
 	Config  string
@@ -18,9 +18,9 @@ type repository struct {
 	Refs    string
 }
 
-func newRepository(projectPath string) repository {
+func newRepository(projectPath string) Repository {
 	repoDir := filepath.Join(projectPath, ".minigit")
-	r := repository{
+	r := Repository{
 		Path:    projectPath,
 		Data:    repoDir,
 		Config:  filepath.Join(repoDir, "config"),
@@ -47,19 +47,19 @@ func walkUpSearch(path string, dir string) (string, error) {
 	return path, nil
 }
 
-func Discover(path string) (repository, error) {
+func Discover(path string) (Repository, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	if _, err = os.Stat(absPath); err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	projectPath, err := walkUpSearch(path, ".minigit")
 	if err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	r := newRepository(projectPath)
@@ -67,25 +67,25 @@ func Discover(path string) (repository, error) {
 	return r, nil
 }
 
-func Create(path string) (repository, error) {
+func Create(path string) (Repository, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	if _, err = os.Stat(absPath); err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	if _, err = os.Stat(filepath.Join(absPath, ".minigit")); err == nil {
-		return repository{}, errors.New("repository already initialized in directory")
+		return Repository{}, errors.New("repository already initialized in directory")
 	}
 
 	r := newRepository(absPath)
 
 	makeDirs := func(dirs ...string) error {
 		for _, d := range dirs {
-			err := os.MkdirAll(d, os.ModePerm)
+			err := os.MkdirAll(d, 0777)
 			if err != nil {
 				return err
 			}
@@ -106,11 +106,11 @@ func Create(path string) (repository, error) {
 
 	err = makeDirs(r.Data, r.Hooks, r.Info, r.Objects, r.Refs)
 	if err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 	err = makeFiles(r.Config, r.Head)
 	if err != nil {
-		return repository{}, err
+		return Repository{}, err
 	}
 
 	return r, nil
