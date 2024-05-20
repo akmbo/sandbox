@@ -13,6 +13,22 @@ import (
 	"github.com/aaolen/mini-git/internal/repository"
 )
 
+// READ OBJECT
+// take hash, open file reader
+// transform into zlib writer
+// create object struct
+// read to first space, add type to object struct
+// read to null byte, add size to object struct
+// add reader with remaining bytes to struct
+
+// WRITE OBJECT
+// take reader, transform into multi-reader for hash, zlib, and size
+// get size
+// write type and size to header
+// create zlib writer with header and file
+// get hash
+// write to file with hash name and compressed content
+
 func compress(input []byte) ([]byte, error) {
 	var b bytes.Buffer
 	w := zlib.NewWriter(&b)
