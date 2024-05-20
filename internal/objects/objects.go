@@ -48,12 +48,33 @@ func getChecksum(content string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func addHeader(content []byte) []byte {
+	var b bytes.Buffer
+	b.WriteString("blob ")
+	b.WriteString(fmt.Sprint(len(content)))
+	b.WriteString("\u0000")
+	b.Write(content)
+	return b.Bytes()
+}
+
+func removeHeader(content []byte) []byte {
+	var contentStart int
+	for i, c := range content {
+		if c == '\u0000' {
+			contentStart = i + 1
+			break
+		}
+	}
+	return content[contentStart:]
+}
+
 func WriteBlob(repo repository.Repository, content string) (checksum string, err error) {
-	compressed, err := compress([]byte(content))
+	checksum = getChecksum(content)
+	withHeader := addHeader([]byte(content))
+	store, err := compress(withHeader)
 	if err != nil {
 		return "", err
 	}
-	checksum = getChecksum(content)
 
 	err = os.MkdirAll(filepath.Join(repo.Objects, checksum[:2]), 0777)
 	if err != nil {
@@ -62,7 +83,7 @@ func WriteBlob(repo repository.Repository, content string) (checksum string, err
 
 	objPath := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
 
-	err = os.WriteFile(objPath, compressed, 0644)
+	err = os.WriteFile(objPath, store, 0644)
 	if err != nil {
 		return "", err
 	}
@@ -91,5 +112,7 @@ func ReadBlob(repo repository.Repository, checksum string) (content string, err 
 		return "", err
 	}
 
-	return string(output), nil
+	withoutHeader := removeHeader(output)
+
+	return string(withoutHeader), nil
 }
