@@ -30,86 +30,145 @@ import (
 // get hash
 // write to file with hash name and compressed content
 
-type blobObject struct {
-	DateType string
-	Size     int
-	Reader   io.Reader
+type Header struct {
+	DataType string
+	Size     int64
 }
 
-func getObjectReader(repo repository.Repository, checksum string) (*os.File, error) {
+func getObjectPath(repo repository.Repository, checksum string) (string, error) {
 	if len(checksum) != 40 {
-		return nil, errors.New("string provided is not a valid checksum")
+		return "", errors.New("string provided is not a valid checksum")
 	}
 
-	obj_path := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
-	_, err := os.Stat(obj_path)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := os.Open(obj_path)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, err
+	objPath := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
+	return objPath, nil
 }
 
-func ReadBlobV2(repo repository.Repository, checksum string) (blob blobObject, err error) {
-	file, err := getObjectReader(repo, checksum)
+func buildCompressedFileReader(path string) (r io.ReadCloser, closer func(), err error) {
+	r, err = os.Open(path)
 	if err != nil {
-		return blob, err
+		return nil, nil, err
 	}
-	defer file.Close()
-	zr, err := zlib.NewReader(file)
+	zr, err := zlib.NewReader(r)
 	if err != nil {
-		return blob, err
-	}
-	defer zr.Close()
-
-	rawHeader := make([]byte, 1024)
-	_, err = zr.Read(rawHeader)
-	if err != nil {
-		return blob, err
+		r.Close()
+		return nil, nil, err
 	}
 
-	getObjectType := func(b []byte) (objectType string, remain []byte) {
-		var objectTypeEnd int
-		for i, r := range b {
-			if r == ' ' {
+	closer = func() {
+		zr.Close()
+		r.Close()
+	}
+
+	return zr, closer, err
+}
+
+func buildHeader(b []byte) (Header, error) {
+	var objectTypeEnd int
+	var contentSizeEnd int
+
+	s := string(b)
+
+	for i, c := range s {
+		if objectTypeEnd == 0 {
+			if c == ' ' {
 				objectTypeEnd = i
-				break
 			}
+			continue
 		}
-		return fmt.Sprint(b[:objectTypeEnd]), b[:objectTypeEnd]
-	}
-
-	getContentSize := func(b []byte) (contentSize int, remain []byte, err error) {
-		var contentSizeEnd int
-		for i, r := range b {
-			if r == '\u0000' {
+		if contentSizeEnd == 0 {
+			if c == '\u0000' {
 				contentSizeEnd = i
 				break
 			}
 		}
-		sizeString := fmt.Sprint(b[:contentSizeEnd])
-		size, err := strconv.Atoi(sizeString)
-		if err != nil {
-			return contentSize, remain, err
-		}
-		return size, b[contentSizeEnd:], nil
 	}
 
-	objecType, remain := getObjectType(rawHeader)
-	contentSize, _, err := getContentSize(remain)
+	objectType := s[:objectTypeEnd]
+	contentSizeString := s[objectTypeEnd+1 : contentSizeEnd]
+
+	contentSize, err := strconv.ParseInt(contentSizeString, 10, 64)
 	if err != nil {
-		return blob, err
+		return Header{}, err
 	}
 
-	// TODO: need to combine the remaining bytes and the remaining zlib reader into one reader
-	blob = blobObject{objecType, contentSize, zr}
+	h := Header{objectType, contentSize}
 
-	return blob, nil
+	return h, nil
+}
+
+func ReadHeader(repo repository.Repository, checksum string) (Header, error) {
+	objPath, err := getObjectPath(repo, checksum)
+	if err != nil {
+		return Header{}, err
+	}
+	zr, close, err := buildCompressedFileReader(objPath)
+	if err != nil {
+		return Header{}, err
+	}
+	defer close()
+
+	containingHeader := make([]byte, 64)
+	n, err := io.ReadFull(zr, containingHeader)
+	if err == io.EOF && n > 0 {
+		containingHeader = containingHeader[:n]
+	} else if err == io.ErrUnexpectedEOF {
+		containingHeader = containingHeader[:n]
+	} else if err != nil {
+		return Header{}, err
+	}
+
+	h, err := buildHeader(containingHeader)
+	if err != nil {
+		return Header{}, err
+	}
+
+	return h, nil
+}
+
+func removeHeaderV2(b []byte) ([]byte, error) {
+	var contentStart int
+	for i, c := range b {
+		if c == '\u0000' {
+			contentStart = i + 1
+		}
+	}
+	if contentStart == 0 {
+		return nil, errors.New("Header end not found")
+	}
+	withoutHeader := b[contentStart:]
+	return withoutHeader, nil
+}
+
+func GetContentReader(repo repository.Repository, checksum string) (reader io.Reader, closer func(), err error) {
+	objPath, err := getObjectPath(repo, checksum)
+	if err != nil {
+		return reader, closer, err
+	}
+	zr, close, err := buildCompressedFileReader(objPath)
+	if err != nil {
+		return reader, closer, err
+	}
+
+	containingHeader := make([]byte, 64)
+	n, err := io.ReadFull(zr, containingHeader)
+	if err == io.EOF && n > 0 {
+		containingHeader = containingHeader[:n]
+	} else if err == io.ErrUnexpectedEOF {
+		containingHeader = containingHeader[:n]
+	} else if err != nil {
+		return reader, closer, err
+	}
+
+	remaining, err := removeHeaderV2(containingHeader)
+	if err != nil {
+		return reader, closer, err
+	}
+
+	br := bytes.NewReader(remaining)
+	mr := io.MultiReader(br, zr)
+
+	return mr, close, err
 }
 
 func compress(input []byte) ([]byte, error) {
@@ -195,13 +254,13 @@ func ReadBlob(repo repository.Repository, checksum string) (content string, err 
 		return "", errors.New("string provided is not a valid checksum")
 	}
 
-	obj_path := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
-	_, err = os.Stat(obj_path)
+	objPath := filepath.Join(repo.Objects, checksum[:2], checksum[2:])
+	_, err = os.Stat(objPath)
 	if err != nil {
 		return "", err
 	}
 
-	b, err := os.ReadFile(obj_path)
+	b, err := os.ReadFile(objPath)
 	if err != nil {
 		return "", err
 	}
