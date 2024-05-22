@@ -81,3 +81,24 @@ func TestGetContentReader(t *testing.T) {
 
 	assert.Equal(expected, result)
 }
+
+func Test_makeBigThing(t *testing.T) {
+	assert := assert.New(t)
+
+	outFile, err := os.Create("bigfile.txt")
+	assert.NoError(err)
+	defer outFile.Close()
+
+	buffer := make([]byte, 1024*5)
+	for i := range buffer {
+		buffer[i] = '.'
+	}
+
+	GB := 200_000
+	TOTAL := GB * 24
+
+	for i := 0; i < TOTAL; i++ {
+		_, err := outFile.Write(buffer)
+		assert.NoError(err)
+	}
+}

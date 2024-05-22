@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -169,6 +170,92 @@ func GetContentReader(repo repository.Repository, checksum string) (reader io.Re
 	mr := io.MultiReader(br, zr)
 
 	return mr, close, err
+}
+
+// hash the raw contents from the given reader
+// create the header, create a multi-reader with the header and the contentReader
+// create a zlib writer that takes the multi-reader
+// open a new file for writing with the hash
+// write to the file with the zlib writer
+
+func hashAndReuse(r io.Reader, w io.Writer) (string, error) {
+	hasher := sha1.New()
+	teeReader := io.TeeReader(r, hasher)
+	if _, err := io.Copy(w, teeReader); err != nil {
+		return "", err
+	}
+	hash := hasher.Sum(nil)
+	hashString := hex.EncodeToString(hash)
+	return hashString, nil
+}
+
+func prefixHeader(r io.Reader) (io.Reader, error) {
+	// var b bytes.Buffer
+	// b.WriteString("blob ")
+	// b.WriteString(fmt.Sprint(len(content)))
+	// b.WriteString("\u0000")
+	// b.Write(content)
+
+	mr := io.MultiReader(r)
+	return mr, nil
+}
+
+func buildCompressedFileWriter(path string) (w io.Writer, closer func(), err error) {
+	file, err := os.Create(path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	zw := zlib.NewWriter(file)
+
+	closer = func() {
+		zw.Close()
+		file.Close()
+	}
+
+	return zw, closer, err
+}
+
+func WriteContentWithHeader(repo repository.Repository, contentReader io.Reader) (checksum string, err error) {
+	var content bytes.Buffer
+	checksum, err = hashAndReuse(contentReader, &content)
+	if err != nil {
+		return checksum, err
+	}
+
+	withHeader, err := prefixHeader(&content)
+	if err != nil {
+		return checksum, err
+	}
+
+	objPath, err := getObjectPath(repo, checksum)
+	if err != nil {
+		return checksum, err
+	}
+
+	outFile, close, err := buildCompressedFileWriter(objPath)
+	defer close()
+	if err != nil {
+		return checksum, err
+	}
+
+	buffer := make([]byte, 4096)
+
+	for {
+		n, err := withHeader.Read(buffer)
+		if err != nil && err != io.EOF {
+			return checksum, err
+		}
+		if n == 0 {
+			break
+		}
+		_, err = outFile.Write(buffer[:n])
+		if err != nil {
+			return checksum, err
+		}
+	}
+
+	return checksum, nil
 }
 
 func compress(input []byte) ([]byte, error) {
