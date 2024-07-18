@@ -1,0 +1,17 @@
+{
+  "username": "test user",
+  "scrobbles": [
+    {
+      "track": "track one",
+      "artist": "test artist one",
+      "album": "test album one",
+      "date": 1649270931000
+    },
+    {
+      "track": "track two",
+      "artist": "test artist two",
+      "album": "test album two",
+      "date": 1649271095000
+    }
+  ]
+} invalid json
