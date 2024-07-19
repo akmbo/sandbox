@@ -3,6 +3,7 @@ package scrobbles
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +25,7 @@ func TestFromFile(t *testing.T) {
 				Track:  "track " + num,
 				Artist: "artist " + num,
 				Album:  "album " + num,
-				Date:   1649270931000 + uint(i),
+				Date:   time.Unix(0, msToNs(1649270931000+int64(i))),
 			}
 			assert.Equal(want, got.Scrobbles[i])
 		}
