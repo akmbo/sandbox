@@ -21,7 +21,7 @@ func TestFromJSON(t *testing.T) {
 
 		assert.NoError(err)
 
-		assert.Equal("test user", got.Username)
+		assert.Equal(got.Username, "test user")
 
 		for i := 0; i < 5000; i++ {
 			num := strconv.Itoa(i + 1)
@@ -31,7 +31,7 @@ func TestFromJSON(t *testing.T) {
 				Album:  "album " + num,
 				Date:   time.Unix(0, msToNs(1649270931000+int64(i))),
 			}
-			assert.Equal(want, got.Scrobbles[i])
+			assert.Equal(got.Scrobbles[i], want)
 		}
 	})
 
@@ -57,4 +57,43 @@ func BenchmarkFromJSON(b *testing.B) {
 			b.Fatal("got error but wasn't expecting one")
 		}
 	}
+}
+
+func TestGetTrackURL(t *testing.T) {
+	assert := assert.New(t)
+
+	scrobble := Scrobble{
+		Artist: "track artist",
+		Album:  "track album",
+		Track:  "track title",
+	}
+
+	got := scrobble.GetTrackURL("user name")
+	want := "https://www.last.fm/user/user+name/library/music/track+artist/_/track+title"
+	assert.Equal(want, got)
+}
+
+func TestGetAlbumURL(t *testing.T) {
+	assert := assert.New(t)
+
+	scrobble := Scrobble{
+		Artist: "track artist",
+		Album:  "track album",
+	}
+
+	got := scrobble.GetAlbumURL("user name")
+	want := "https://www.last.fm/user/user+name/library/music/track+artist/track+album"
+	assert.Equal(want, got)
+}
+
+func TestGetArtistURL(t *testing.T) {
+	assert := assert.New(t)
+
+	scrobble := Scrobble{
+		Artist: "track artist",
+	}
+
+	got := scrobble.GetArtistURL("user name")
+	want := "https://www.last.fm/user/user+name/library/music/track+artist"
+	assert.Equal(want, got)
 }

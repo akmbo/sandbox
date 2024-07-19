@@ -2,7 +2,9 @@ package scrobbles
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -11,6 +13,24 @@ type Scrobble struct {
 	Artist string    `json:"artist"`
 	Album  string    `json:"album"`
 	Date   time.Time `json:"date"`
+}
+
+func (s *Scrobble) GetTrackURL(username string) string {
+	base := "https://www.last.fm/user/%s/library/music/%s/_/%s"
+	link := fmt.Sprintf(base, username, s.Artist, s.Track)
+	return strings.ReplaceAll(link, " ", "+")
+}
+
+func (s *Scrobble) GetAlbumURL(username string) string {
+	base := "https://www.last.fm/user/%s/library/music/%s/%s"
+	link := fmt.Sprintf(base, username, s.Artist, s.Album)
+	return strings.ReplaceAll(link, " ", "+")
+}
+
+func (s *Scrobble) GetArtistURL(username string) string {
+	base := "https://www.last.fm/user/%s/library/music/%s"
+	link := fmt.Sprintf(base, username, s.Artist)
+	return strings.ReplaceAll(link, " ", "+")
 }
 
 func (s *Scrobble) UnmarshalJSON(b []byte) error {
