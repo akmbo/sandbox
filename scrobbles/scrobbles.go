@@ -3,7 +3,6 @@ package scrobbles
 import (
 	"encoding/json"
 	"io"
-	"os"
 	"time"
 )
 
@@ -41,14 +40,8 @@ func msToNs(milliseconds int64) int64 {
 	return milliseconds * 1000000
 }
 
-func FromFile(path string) (sLog ScrobbleLog, err error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return sLog, err
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
+func FromJSON(reader io.Reader) (sLog ScrobbleLog, err error) {
+	decoder := json.NewDecoder(reader)
 	for {
 		if err = decoder.Decode(&sLog); err == io.EOF {
 			break

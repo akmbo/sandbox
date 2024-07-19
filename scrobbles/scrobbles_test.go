@@ -1,6 +1,7 @@
 package scrobbles
 
 import (
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -8,12 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFromFile(t *testing.T) {
+func TestFromJSON(t *testing.T) {
 	assert := assert.New(t)
 
 	t.Run("test valid log", func(t *testing.T) {
-		path := "testdata/test_log.json"
-		got, err := FromFile(path)
+		file, err := os.Open("testdata/test_log.json")
+		assert.NoError(err)
+		defer file.Close()
+
+		got, err := FromJSON(file)
 
 		assert.NoError(err)
 
@@ -32,17 +36,24 @@ func TestFromFile(t *testing.T) {
 	})
 
 	t.Run("test invalid log", func(t *testing.T) {
-		path := "testdata/invalid_log.txt"
+		file, err := os.Open("testdata/invalid_log.txt")
+		assert.NoError(err)
+		defer file.Close()
 
-		_, err := FromFile(path)
+		_, err = FromJSON(file)
 		assert.Error(err)
 	})
 }
 
-func BenchmarkFromFile(b *testing.B) {
-	path := "testdata/test_log.json"
+func BenchmarkFromJSON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		if _, err := FromFile(path); err != nil {
+		file, err := os.Open("testdata/test_log.json")
+		if err != nil {
+			b.Fatalf("got error opening file")
+		}
+		defer file.Close()
+
+		if _, err := FromJSON(file); err != nil {
 			b.Fatal("got error but wasn't expecting one")
 		}
 	}
