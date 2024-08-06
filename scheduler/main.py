@@ -30,9 +30,11 @@ def get_data() -> list[LessonData]:
 
 
 def print_condensed_data(data: list[list[LessonData]]) -> None:
-    for d in data:
+    for i, d in enumerate(data):
         full_duration = sum([e["duration"] for e in d])
-        print(f"{full_duration}m - {', '.join([e['lesson'] for e in d])}")
+        hours = int(full_duration / 60)
+        minutes = full_duration - hours * 60
+        print(f"{i+1})\t{hours}h {minutes}m \t- {', '.join([e['lesson'] for e in d])}")
 
 
 def main(already_complete: int = 7, total_days: int = 13):

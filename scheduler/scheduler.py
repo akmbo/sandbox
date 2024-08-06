@@ -1,7 +1,13 @@
+# TODO: make these actually work, they don't always fill to the exact length expected
+
+
 def balance_ints(original: list[int], length: int) -> list[list[int]]:
     """Returns 2D list with values condensed and balanced to given size.
 
     Ex. [3, 3, 1, 2, 3, 4], 5 -> [[3], [3], [1, 2], [3], [5]]"""
+
+    if length >= len(original):
+        return [[e] for e in original]
 
     average: int = int(sum(original) / length)
     new: list[list[int]] = []
@@ -23,6 +29,9 @@ def balance_dicts(original: list[dict], key: str, length: int) -> list[list[dict
 
     Ex. [{"char": "a", "time": 3}, {"char": "b", "time": 1}, {"char": "c", "time": 2}], 2 ->
     [[{"char": "a", "time": 3}], [{"char": "b", "time": 1}, {"char": "c", "time": 2}]]"""
+
+    if length >= len(original):
+        return [[e] for e in original]
 
     average: int = int(sum([d[key] for d in original]) / length)
     new: list[list[dict]] = []
